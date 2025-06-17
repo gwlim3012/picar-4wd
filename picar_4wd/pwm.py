@@ -21,7 +21,8 @@ class PWM(I2C):
             self.send(0x2C, self.ADDR)
             self.send(0, self.ADDR)
             self.send(0, self.ADDR)
-        except IOError:
+        except IOError as e:
+            print(f"I/O error in PWM.__init__: {e}, switching to 0x15")
             self.ADDR = 0x15
 
       #  self.debug = debug

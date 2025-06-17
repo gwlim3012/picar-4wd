@@ -24,7 +24,8 @@ class ADC(I2C):
         try:
             self.send([self.chn, 0, 0], self.ADDR)
             self.recv(1, self.ADDR)
-        except OSError:
+        except OSError as e:
+            print(f"I/O error in ADC.__init__: {e}, switching to 0x15")
             self.ADDR = 0x15
         
     def read(self):                     
