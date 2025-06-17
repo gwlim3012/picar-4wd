@@ -15,6 +15,8 @@ if __name__=='__main__':
     try:
         while True:
             Track_line()
+    except KeyboardInterrupt:
+        pass
     finally:
         fc.stop()
         print('Program stop')
