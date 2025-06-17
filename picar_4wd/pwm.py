@@ -8,6 +8,7 @@ class PWM(I2C):
     REG_ARR = 0x44
     ADDR = 0x14
     CLOCK = 72000000
+    _instances = []
 
     def __init__(self, channel):
         super().__init__()
@@ -31,6 +32,7 @@ class PWM(I2C):
         self._pulse_width = 0
         self._freq = 50
         self.freq(50)
+        PWM._instances.append(self)
 
     def i2c_write(self, reg, value):
         value_h = value >> 8
@@ -100,6 +102,15 @@ class PWM(I2C):
             self._pulse_width_percent = pulse_width_percent[0] / 100.0
             pulse_width = self._pulse_width_percent * self._arr
             self.pulse_width(pulse_width)
+
+    def reinit(self):
+        self.freq(self._freq)
+        self.pulse_width(self._pulse_width)
+
+    @classmethod
+    def reinit_all(cls):
+        for inst in cls._instances:
+            inst.reinit()
 
         
 def test():
