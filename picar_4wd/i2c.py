@@ -20,14 +20,19 @@ class I2C(object):
         debugging so it is clear where the error occurred.
         """
 
-        def wrapper(*args, **kw):
+        def wrapper(self, *args, **kw):
             try:
-                return func(*args, **kw)
+                return func(self, *args, **kw)
             except OSError as e:
-                print(f"I/O error in {func.__name__}: {e}")
+                print(f"I/O error in {func.__name__}: {e}, resetting I2C bus")
                 soft_reset()
-                time.sleep(1)
-                return func(*args, **kw)
+                try:
+                    self._smbus.close()
+                except Exception:
+                    pass
+                self._smbus = SMBus(self._bus)
+                time.sleep(0.05)
+                return func(self, *args, **kw)
 
         return wrapper
 
