@@ -12,27 +12,35 @@ class I2C(object):
         self._smbus = SMBus(self._bus)
 
     def auto_reset(func):
-        """Decorator to auto reset the I2C bus on I/O error.
+        """Decorator to automatically reset the I2C bus on errors.
 
-        When an :class:`OSError` is raised during I2C communication the
-        controller will be reset using :func:`soft_reset` and the operation
-        retried once.  The name of the function that failed is printed to aid
-        debugging so it is clear where the error occurred.
+        The previous implementation only attempted the failing operation once
+        after resetting the controller.  In practice the I2C bus can require a
+        few retries before recovering, so here we try up to ``RETRY`` times
+        before giving up.  Each failure triggers a soft reset and the bus is
+        reinitialised.  The name of the function that failed is printed to aid
+        debugging.
         """
 
         def wrapper(self, *args, **kw):
-            try:
-                return func(self, *args, **kw)
-            except OSError as e:
-                print(f"I/O error in {func.__name__}: {e}, resetting I2C bus")
-                soft_reset()
+            last_exc = None
+            for _ in range(self.RETRY):
                 try:
-                    self._smbus.close()
-                except Exception:
-                    pass
-                self._smbus = SMBus(self._bus)
-                time.sleep(0.05)
-                return func(self, *args, **kw)
+                    return func(self, *args, **kw)
+                except OSError as e:
+                    last_exc = e
+                    print(
+                        f"I/O error in {func.__name__}: {e}, resetting I2C bus"
+                    )
+                    soft_reset()
+                    try:
+                        self._smbus.close()
+                    except Exception:
+                        pass
+                    self._smbus = SMBus(self._bus)
+                    time.sleep(0.05)
+            # If all retries failed, re-raise the last exception
+            raise last_exc
 
         return wrapper
 
