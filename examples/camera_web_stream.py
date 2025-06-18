@@ -12,8 +12,15 @@ app = Flask(__name__)
 
 # Initialize camera with desired resolution
 camera = PiCamera()
+camera.vflip = True  # 상하 반전
 camera.resolution = (640, 480)
 
+@app.route('/')
+def index():
+    return '''
+        <h2>Camera Streaming Server</h2>
+        <p>영상 스트리밍을 보려면 <a href="/camera">/camera</a>로 접속하세요.</p>
+    '''
 
 def generate_frames():
     """Video streaming generator function."""
