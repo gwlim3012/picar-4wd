@@ -18,7 +18,7 @@ frame_lock = Lock()
 
 # 카메라 설정
 camera = PiCamera()
-camera.resolution = (160, 120)
+camera.resolution = (224, 224)
 camera.framerate = 10
 camera.vflip = True
 
@@ -126,16 +126,16 @@ def camera_loop():
     global latest_frame
     stream = io.BytesIO()
     frame_counter = 0
-    for _ in camera.capture_continuous(stream, format='jpeg', use_video_port=True, quality=30):
+    for _ in camera.capture_continuous(stream, format='jpeg', use_video_port=True, quality=50):
         if not running:
             break
         frame_counter += 1
         stream.seek(0)
 
-        # 프레임 스킵 (3개 중 1개만 처리)
-        if frame_counter % 2 != 0:
-            stream.truncate()
-            continue
+        # # 프레임 스킵 (3개 중 1개만 처리)
+        # if frame_counter % 2 != 0:
+        #     stream.truncate()
+        #     continue
 
         frame = stream.read()
         with frame_lock:
@@ -157,12 +157,14 @@ def track_line_loop():
                     fc.turn_left(TRACK_LINE_SPEED)
                 elif status == 1:
                     fc.turn_right(TRACK_LINE_SPEED)
+                else:
+                    # Continue moving forward if the line is temporarily lost
+                    fc.forward(TRACK_LINE_SPEED)
             except OSError as e:
                 print(f"[Line Sensor] error: {e}")
-                fc.soft_reset()
         else:
             fc.stop()
-        time.sleep(0.01)
+        time.sleep(0.02)
 
 def signal_handler(sig, frame):
     global running
