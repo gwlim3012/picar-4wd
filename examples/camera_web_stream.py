@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+"""
+Simple camera stream using Flask and PiCamera.
+Install dependencies with:
+    pip3 install flask
+"""
+from flask import Flask, Response
+from picamera import PiCamera
+import io
+
+app = Flask(__name__)
+
+# Initialize camera with desired resolution
+camera = PiCamera()
+camera.resolution = (640, 480)
+
+
+def generate_frames():
+    """Video streaming generator function."""
+    stream = io.BytesIO()
+    for _ in camera.capture_continuous(stream, format='jpeg', use_video_port=True):
+        stream.seek(0)
+        frame = stream.read()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+        stream.seek(0)
+        stream.truncate()
+
+
+@app.route('/camera')
+def camera_feed():
+    """Return the camera stream as an MJPEG feed."""
+    return Response(generate_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+if __name__ == '__main__':
+    # Run the server on all interfaces so other machines can access it
+    app.run(host='0.0.0.0', port=8000, threaded=True)
