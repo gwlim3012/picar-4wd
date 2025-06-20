@@ -15,14 +15,19 @@ class Motor():
     #     self.t.start()
 
     def set_power(self, power):
-        if power >= 0:
-            direction = 0
-        elif power < 0:
-            direction = 1
+        """Set motor speed.
+
+        The ``power`` argument ranges from -100 to 100. The sign controls
+        direction and the value controls speed. Values outside this range are
+        clamped.
+        """
+
+        direction = 0 if power >= 0 else 1
         power = abs(power)
-        if power != 0:
-            power = int(power /2 ) + 50
-        power = power
+
+        # Ensure the pwm duty cycle is within [0, 100]
+        if power > 100:
+            power = 100
 
         direction = direction if not self._is_reversed else not direction
         try:
