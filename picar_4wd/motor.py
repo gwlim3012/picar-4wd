@@ -21,7 +21,7 @@ class Motor():
             direction = 1
         power = abs(power)
         if power != 0:
-            power = int(power /2 ) + 50
+            power = int(power /2 ) + 20
         power = power
 
         direction = direction if not self._is_reversed else not direction
