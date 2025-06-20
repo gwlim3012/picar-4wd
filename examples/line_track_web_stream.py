@@ -23,7 +23,8 @@ camera.framerate = 10
 camera.vflip = True
 
 TRACK_LINE_SPEED = 5
-KEYBOARD_SPEED = 20
+# Current speed used for keyboard control
+keyboard_power = 50
 
 @app.route('/')
 def index():
@@ -137,26 +138,41 @@ def keyboard_page():
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
         body {background:#111;color:#fff;font-family:sans-serif;text-align:center;}
+        .video-container {width:560px;height:420px;margin:20px auto;border:2px solid #555;overflow:hidden;}
+        .video-container img {width:100%;height:auto;display:block;}
         button {margin-top:20px;padding:10px 20px;font-size:18px;}
+        .status {margin-top:10px;font-size:18px;color:#0f0;}
       </style>
     </head>
     <body>
       <h1>Keyboard Control Mode</h1>
-      <p>Use arrow keys to move. Space to stop. Press B to go back.</p>
+      <div class="video-container">
+        <img src="/camera" />
+      </div>
+      <div class="status">Speed: <span id="power"></span></div>
+      <p>Use W/A/S/D or arrow keys. Space to stop. 6/4 to change speed. Press B or Q to go back.</p>
       <button onclick="location.href='/'">Back</button>
       <script>
-        function send(cmd){fetch('/control?cmd='+cmd,{method:'POST'});}
+        function send(cmd){
+          fetch('/control?cmd='+cmd,{method:'POST'})
+            .then(r=>r.text())
+            .then(text=>{if(text) document.getElementById('power').innerText=text;});
+        }
+        function updatePower(){send('get_power');}
         document.addEventListener('keydown',function(e){
-          if(e.key==='ArrowUp') send('forward');
-          else if(e.key==='ArrowDown') send('backward');
-          else if(e.key==='ArrowLeft') send('left');
-          else if(e.key==='ArrowRight') send('right');
+          if(e.key==='w' || e.key==='W' || e.key==='ArrowUp') send('forward');
+          else if(e.key==='s' || e.key==='S' || e.key==='ArrowDown') send('backward');
+          else if(e.key==='a' || e.key==='A' || e.key==='ArrowLeft') send('left');
+          else if(e.key==='d' || e.key==='D' || e.key==='ArrowRight') send('right');
           else if(e.key===' ') send('stop');
-          else if(e.key==='b' || e.key==='B') location.href='/';
+          else if(e.key==='6') send('power_up');
+          else if(e.key==='4') send('power_down');
+          else if(['b','B','q','Q'].includes(e.key)) location.href='/';
         });
         document.addEventListener('keyup',function(e){
-          if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) send('stop');
+          if(['w','a','s','d','W','A','S','D','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) send('stop');
         });
+        updatePower();
       </script>
     </body>
     </html>
@@ -164,15 +180,26 @@ def keyboard_page():
 
 @app.route('/control', methods=['POST'])
 def keyboard_control():
-    cmd = request.args.get('cmd','')
+    global keyboard_power
+    cmd = request.args.get('cmd', '')
     if cmd == 'forward':
-        fc.forward(KEYBOARD_SPEED)
+        fc.forward(keyboard_power)
     elif cmd == 'backward':
-        fc.backward(KEYBOARD_SPEED)
+        fc.backward(keyboard_power)
     elif cmd == 'left':
-        fc.turn_left(KEYBOARD_SPEED)
+        fc.turn_left(keyboard_power)
     elif cmd == 'right':
-        fc.turn_right(KEYBOARD_SPEED)
+        fc.turn_right(keyboard_power)
+    elif cmd == 'power_up':
+        if keyboard_power <= 90:
+            keyboard_power += 10
+        return str(keyboard_power)
+    elif cmd == 'power_down':
+        if keyboard_power >= 10:
+            keyboard_power -= 10
+        return str(keyboard_power)
+    elif cmd == 'get_power':
+        return str(keyboard_power)
     else:
         fc.stop()
     return ('', 204)
