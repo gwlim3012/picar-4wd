@@ -2,7 +2,7 @@
 from threading import Thread, Lock
 import time
 import io
-from flask import Flask, Response, redirect, url_for
+from flask import Flask, Response, redirect, url_for, request
 from picamera import PiCamera
 import picar_4wd as fc
 import signal
@@ -23,6 +23,7 @@ camera.framerate = 10
 camera.vflip = True
 
 TRACK_LINE_SPEED = 5
+KEYBOARD_SPEED = 20
 
 @app.route('/')
 def index():
@@ -90,6 +91,9 @@ def index():
         <form method="post" action="/track/stop">
           <button>Stop</button>
         </form>
+        <form method="get" action="/keyboard">
+          <button>Keyboard Control</button>
+        </form>
       </div>
 
       <div class="status">Tracking: <b>{state}</b></div>
@@ -121,6 +125,57 @@ def stop_tracking():
     tracking_enabled = False
     fc.stop()
     return redirect(url_for('index'))
+
+@app.route('/keyboard')
+def keyboard_page():
+    global tracking_enabled
+    tracking_enabled = False
+    return '''
+    <html>
+    <head>
+      <title>Keyboard Control</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body {background:#111;color:#fff;font-family:sans-serif;text-align:center;}
+        button {margin-top:20px;padding:10px 20px;font-size:18px;}
+      </style>
+    </head>
+    <body>
+      <h1>Keyboard Control Mode</h1>
+      <p>Use arrow keys to move. Space to stop. Press B to go back.</p>
+      <button onclick="location.href='/'">Back</button>
+      <script>
+        function send(cmd){fetch('/control?cmd='+cmd,{method:'POST'});}
+        document.addEventListener('keydown',function(e){
+          if(e.key==='ArrowUp') send('forward');
+          else if(e.key==='ArrowDown') send('backward');
+          else if(e.key==='ArrowLeft') send('left');
+          else if(e.key==='ArrowRight') send('right');
+          else if(e.key===' ') send('stop');
+          else if(e.key==='b' || e.key==='B') location.href='/';
+        });
+        document.addEventListener('keyup',function(e){
+          if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) send('stop');
+        });
+      </script>
+    </body>
+    </html>
+    '''
+
+@app.route('/control', methods=['POST'])
+def keyboard_control():
+    cmd = request.args.get('cmd','')
+    if cmd == 'forward':
+        fc.forward(KEYBOARD_SPEED)
+    elif cmd == 'backward':
+        fc.backward(KEYBOARD_SPEED)
+    elif cmd == 'left':
+        fc.turn_left(KEYBOARD_SPEED)
+    elif cmd == 'right':
+        fc.turn_right(KEYBOARD_SPEED)
+    else:
+        fc.stop()
+    return ('', 204)
 
 def camera_loop():
     global latest_frame
