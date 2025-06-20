@@ -2,7 +2,7 @@
 from threading import Thread, Lock
 import time
 import io
-from flask import Flask, Response, redirect, url_for
+from flask import Flask, Response, redirect, url_for, request
 from picamera import PiCamera
 import picar_4wd as fc
 import signal
@@ -23,6 +23,9 @@ camera.framerate = 10
 camera.vflip = True
 
 TRACK_LINE_SPEED = 5
+# Default speed used for keyboard control. Can be adjusted with the
+# 6 (increase) and 4 (decrease) keys similar to ``keyboard_control.py``.
+keyboard_speed = 50
 
 @app.route('/')
 def index():
@@ -90,6 +93,9 @@ def index():
         <form method="post" action="/track/stop">
           <button>Stop</button>
         </form>
+        <form method="get" action="/keyboard">
+          <button>Keyboard Control</button>
+        </form>
       </div>
 
       <div class="status">Tracking: <b>{state}</b></div>
@@ -121,6 +127,84 @@ def stop_tracking():
     tracking_enabled = False
     fc.stop()
     return redirect(url_for('index'))
+
+@app.route('/keyboard')
+def keyboard_page():
+    global tracking_enabled
+    tracking_enabled = False
+    return f'''
+    <html>
+    <head>
+      <title>Keyboard Control</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <style>
+        body {{background:#111;color:#fff;font-family:sans-serif;text-align:center;}}
+        .video-container {{width:560px;height:420px;margin:20px auto;border:2px solid #555;overflow:hidden;}}
+        .video-container img {{width:100%;display:block;}}
+        button {{margin-top:20px;padding:10px 20px;font-size:18px;}}
+        #speed {{margin-top:10px;font-size:18px;color:#0f0;}}
+      </style>
+    </head>
+    <body>
+      <h1>Keyboard Control Mode</h1>
+      <div class="video-container"><img src="/camera" /></div>
+      <p>Use W/A/S/D to move. 6 to speed up, 4 to slow down. Press Q or B to go back.</p>
+      <button onclick="location.href='/'">Back</button>
+      <div id="speed">Speed: {keyboard_speed}</div>
+      <script>
+        let speed = {keyboard_speed};
+        function send(cmd){{
+          fetch('/control?cmd='+cmd, {{method:'POST'}})
+            .then(r => r.text())
+            .then(t => {{
+              if(t){{
+                speed = parseInt(t);
+                document.getElementById('speed').innerText = 'Speed: ' + speed;
+              }}
+            }});
+        }}
+        document.addEventListener('keydown',function(e){{
+          const k=e.key;
+          if(k==='w' || k==='W') send('forward');
+          else if(k==='s' || k==='S') send('backward');
+          else if(k==='a' || k==='A') send('left');
+          else if(k==='d' || k==='D') send('right');
+          else if(k==='6') send('inc');
+          else if(k==='4') send('dec');
+          else if(k==='q' || k==='Q' || k==='b' || k==='B') location.href='/';
+        }});
+        document.addEventListener('keyup',function(e){{
+          if(['w','a','s','d','W','A','S','D'].includes(e.key)) send('stop');
+        }});
+      </script>
+    </body>
+    </html>
+    '''
+
+@app.route('/control', methods=['POST'])
+def keyboard_control():
+    """Handle keyboard control commands from the web UI."""
+    global keyboard_speed
+    cmd = request.args.get('cmd', '')
+    if cmd == 'inc':
+        if keyboard_speed <= 90:
+            keyboard_speed += 10
+        return str(keyboard_speed)
+    elif cmd == 'dec':
+        if keyboard_speed >= 20:
+            keyboard_speed -= 10
+        return str(keyboard_speed)
+    elif cmd == 'forward':
+        fc.forward(keyboard_speed)
+    elif cmd == 'backward':
+        fc.backward(keyboard_speed)
+    elif cmd == 'left':
+        fc.turn_left(keyboard_speed)
+    elif cmd == 'right':
+        fc.turn_right(keyboard_speed)
+    else:
+        fc.stop()
+    return str(keyboard_speed)
 
 def camera_loop():
     global latest_frame
